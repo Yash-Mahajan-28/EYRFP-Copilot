@@ -11,6 +11,7 @@ export default function ReportsPage() {
   const [agent, setAgent] = useState<AgentName>('Collective');
   const [reports, setReports] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<'cards' | 'json'>('cards');
 
   const agentOptions: AgentName[] = useMemo(
     () => ['Collective', 'Main', 'Sales', 'Tech', 'Pricing'],
@@ -48,12 +49,28 @@ export default function ReportsPage() {
               <h1 className="text-3xl font-bold text-gray-900">Agent Reports</h1>
               <p className="text-black">Summaries for each agent and overall</p>
             </div>
-            <button
-              onClick={() => loadReports(agent)}
-              className="inline-flex items-center gap-2 border border-gray-300 text-black px-4 py-2 rounded-lg text-sm hover:bg-gray-100"
-            >
-              <RefreshCw size={16} /> Refresh
-            </button>
+            <div className="flex items-center gap-3">
+              <div className="flex bg-gray-200 rounded-lg p-1">
+                <button
+                  onClick={() => setViewMode('cards')}
+                  className={`px-3 py-1 rounded text-xs font-medium transition-colors ${viewMode === 'cards' ? 'bg-white text-black shadow' : 'text-gray-600 hover:text-black'}`}
+                >
+                  Cards
+                </button>
+                <button
+                  onClick={() => setViewMode('json')}
+                  className={`px-3 py-1 rounded text-xs font-medium transition-colors ${viewMode === 'json' ? 'bg-white text-black shadow' : 'text-gray-600 hover:text-black'}`}
+                >
+                  JSON
+                </button>
+              </div>
+              <button
+                onClick={() => loadReports(agent)}
+                className="inline-flex items-center gap-2 border border-gray-300 text-black px-4 py-2 rounded-lg text-sm hover:bg-gray-100"
+              >
+                <RefreshCw size={16} /> Refresh
+              </button>
+            </div>
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6 flex items-center gap-3 text-black">
@@ -73,6 +90,10 @@ export default function ReportsPage() {
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-black">Loading reports...</div>
           ) : reports.length === 0 ? (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-black">No reports found.</div>
+          ) : viewMode === 'json' ? (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+              <pre className="text-xs overflow-x-auto text-black">{JSON.stringify(reports, null, 2)}</pre>
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 text-black">
               {reports.map((r, idx) => (

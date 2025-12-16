@@ -65,11 +65,12 @@ export async function POST(request: Request) {
     console.log(`Decision: ${result.decision}`);
     console.log(`${'='.repeat(60)}\n`);
 
-    // Persist logs and reports
+    // Persist logs, reports, and processed result
     try {
       const db = await getDatabase();
       const logs = db.collection('agent_logs');
       const reports = db.collection('agent_reports');
+      const processed = db.collection('processed_rfps');
 
       // Per-agent logs
       if (result.salesResult) {
@@ -195,6 +196,22 @@ export async function POST(request: Request) {
           pricing: result.pricingResult,
         },
       });
+
+      // Upsert processed results for quick retrieval later
+      await processed.updateOne(
+        { rfpId },
+        {
+          $set: {
+            rfpId,
+            rfpTitle: rfp.title,
+            rfp,
+            result,
+            processedAt: new Date(),
+            processingTime,
+          },
+        },
+        { upsert: true }
+      );
     } catch (persistErr) {
       console.error('Failed to persist logs/reports:', persistErr);
       // continue without failing request
