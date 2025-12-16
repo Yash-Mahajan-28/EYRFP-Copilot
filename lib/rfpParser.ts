@@ -23,54 +23,148 @@ export interface RFP {
   type?: string;
 }
 
+// Preprocess PDF text to improve Gemini parsing
+function preprocessPdfText(text: string): string {
+  // Remove excessive whitespace and normalize line breaks
+  let cleaned = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  // Remove multiple spaces
+  cleaned = cleaned.replace(/ {2,}/g, ' ');
+  // Remove multiple newlines but keep paragraph structure
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+  // Trim each line
+  cleaned = cleaned.split('\n').map(line => line.trim()).join('\n');
+  return cleaned.trim();
+}
+
 // Gemini-driven parsing of free text into structured RFP
 export async function parseWithGemini(text: string): Promise<{ rfp: RFP | null; parser: 'gemini' | 'failed' }> {
   try {
     console.log('🤖 Attempting Gemini parsing...');
+    
+    // Preprocess the text
+    const cleanedText = preprocessPdfText(text);
+    console.log('🧹 Cleaned text length:', cleanedText.length);
+    
     const { ChatGoogleGenerativeAI } = await import('@langchain/google-genai');
     const { ChatPromptTemplate } = await import('@langchain/core/prompts');
     const { StringOutputParser } = await import('@langchain/core/output_parsers');
 
     const llm = new ChatGoogleGenerativeAI({
-      model: process.env.GEMINI_MODEL || 'gemini-1.5-flash-latest',
+      model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
       temperature: parseFloat(process.env.GEMINI_TEMPERATURE || '0.2'),
       apiKey: process.env.GEMINI_API_KEY,
+      maxRetries: 2,
     });
 
     const prompt = ChatPromptTemplate.fromMessages([
-      ['system', `You are an expert at extracting structured RFP information from text. 
+      ['system', `You are an expert at extracting structured information from RFP (Request for Proposal) documents.
 
-CRITICAL: Extract ALL actual items, products, materials, or services mentioned in the document. DO NOT use generic placeholders.
+Your task: Analyze the document and extract ALL items, products, materials, or services mentioned.
 
-For cable/electrical RFPs: extract conductor size (mm²), voltage (kV), insulation (mm) from specifications.
-For other RFPs (paint, supplies, materials, etc.): 
-- Extract the actual item names/descriptions from the document
-- Extract quantities if mentioned
-- Use default values (conductor_size_mm2: 4, voltage_kv: 1, insulation_mm: 1) for the specs field since they don't apply
+Extraction Rules:
+1. Find the RFP title/subject (usually at the top)
+2. Find the issuing organization/company name
+3. Find due date/deadline (look for dates, if not found use today: ${new Date().toISOString().split('T')[0]})
+4. Extract EVERY item mentioned - look for:
+   - Numbered lists (1., 2., 3.)
+   - Bullet points (•, -, *)
+   - Tables with item descriptions
+   - Any lines mentioning products/materials/services
+   - Quantities (look for numbers followed by units like pcs, units, kg, meters, etc.)
 
-ALWAYS extract from the actual document text:
-- Title or subject of the RFP
-- Issuing organization/entity
-- Due date or submission deadline
-- List of all items/products/materials requested
-- Quantities for each item
-- Any test requirements or standards mentioned
+5. For technical specifications:
+   - Cables/Wires: extract conductor size (mm²), voltage (kV), insulation thickness (mm)
+   - Other items: use default specs (conductor_size_mm2: 4, voltage_kv: 1, insulation_mm: 1.0)
 
-Return ONLY valid JSON with no markdown formatting.`],
-      ['human', `Extract RFP data from this PDF text. READ the text carefully and extract ALL items mentioned:\n\n{rfpText}\n\nReturn JSON with this exact structure:\n{\n  "id": "RFP-UPLOAD-${Date.now()}",\n  "title": "<extract actual title from document>",\n  "due_date": "<extract or use today's date YYYY-MM-DD>",\n  "due_date_offset_days": 0,\n  "scope": [\n    {\n      "item_id": 1,\n      "description": "<MUST be actual item name from document, NOT 'placeholder'>",\n      "qty": <extract actual quantity or 1>,\n      "specs": {\n        "conductor_size_mm2": 4,\n        "voltage_kv": 1,\n        "insulation_mm": 1.0\n      }\n    }\n  ],\n  "tests": ["<extract test/quality requirements or []>"],\n  "origin_url": "uploaded-pdf",\n  "issuing_entity": "<extract organization name>",\n  "type": "PDF"\n}\n\nIMPORTANT: The 'description' field MUST contain the actual item names from the document. If you see items like "paint", "brushes", "cables", etc., use those exact names.`],
+6. Look for test requirements or quality standards
+
+CRITICAL: Use actual text from the document - NO generic placeholders like "Item 1", "Product X", etc.
+
+Return ONLY valid JSON without markdown code blocks.`],
+      ['human', `Analyze this RFP document and extract all information:
+
+{rfpText}
+
+---
+
+Return this JSON structure:
+{{
+  "id": "RFP-UPLOAD-${Date.now()}",
+  "title": "<actual RFP title from document>",
+  "due_date": "${new Date().toISOString().split('T')[0]}",
+  "due_date_offset_days": 0,
+  "scope": [
+    {{
+      "item_id": 1,
+      "description": "<ACTUAL item description - be specific>",
+      "qty": <number>,
+      "specs": {{
+        "conductor_size_mm2": 4,
+        "voltage_kv": 1,
+        "insulation_mm": 1.0
+      }}
+    }}
+  ],
+  "tests": [],
+  "origin_url": "uploaded-pdf",
+  "issuing_entity": "<organization name from document>",
+  "type": "PDF"
+}}
+
+Extract AT LEAST 1 item. If the document has multiple items, include them all.`],
     ]);
 
     const chain = prompt.pipe(llm).pipe(new StringOutputParser());
-    const raw = await chain.invoke({ rfpText: text.slice(0, 15000) });
-    console.log('📥 Gemini raw response:', raw.slice(0, 500));
+    
+    // Use cleaned text, limit to reasonable size for API
+    const textToSend = cleanedText.slice(0, 100000);
+    console.log(`📤 Sending ${textToSend.length} characters to Gemini...`);
+    
+    let raw: string;
+    try {
+      raw = await chain.invoke({ rfpText: textToSend });
+      console.log('📥 Gemini response received - length:', raw.length);
+      console.log('📥 Response preview:', raw.slice(0, 300));
+    } catch (apiError) {
+      console.error('❌ Gemini API call failed:', apiError);
+      throw new Error(`Gemini API error: ${apiError instanceof Error ? apiError.message : 'Unknown error'}`);
+    }
 
     let cleaned = raw.trim();
-    // Strip markdown code blocks
-    if (cleaned.startsWith('```')) {
-      cleaned = cleaned.replace(/^```json\s*/, '').replace(/^```\s*/, '').replace(/\s*```$/, '');
+    
+    // Aggressive markdown cleanup
+    if (cleaned.includes('```')) {
+      // Remove code block markers
+      cleaned = cleaned.replace(/```json\s*/gi, '').replace(/```\s*/g, '');
     }
-    const parsed = JSON.parse(cleaned);
-    console.log('✅ Gemini parsing successful');
+    
+    // Try to find JSON if response has extra text
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      cleaned = jsonMatch[0];
+    }
+    
+    cleaned = cleaned.trim();
+    console.log('🧹 Cleaned for parsing:', cleaned.slice(0, 400));
+    
+    let parsed: any;
+    try {
+      parsed = JSON.parse(cleaned);
+      console.log('✅ JSON parsed successfully');
+    } catch (parseError) {
+      console.error('❌ JSON parse error:', parseError);
+      console.error('📄 Raw response:', raw.slice(0, 1500));
+      console.error('📄 Cleaned response:', cleaned.slice(0, 1500));
+      throw new Error(`Invalid JSON from Gemini: ${parseError instanceof Error ? parseError.message : 'Parse failed'}`);
+    }
+    
+    console.log('📊 Parsed structure:', { 
+      hasId: !!parsed.id, 
+      hasTitle: !!parsed.title, 
+      hasScope: !!parsed.scope,
+      scopeLength: parsed.scope?.length || 0,
+      hasEntity: !!parsed.issuing_entity
+    });
 
     // Basic normalization
     const fallbackDate = new Date().toISOString().split('T')[0];
@@ -84,11 +178,19 @@ Return ONLY valid JSON with no markdown formatting.`],
     parsed.issuing_entity = parsed.issuing_entity || 'Unknown';
     parsed.type = parsed.type || 'PDF';
 
-    // Ensure numeric fields and valid data
-    if (parsed.scope.length === 0) {
-      console.warn('⚠️ Gemini returned empty scope - this should not happen');
-      throw new Error('Gemini failed to extract any items from PDF');
+    // Validate basic structure
+    if (!parsed.scope || !Array.isArray(parsed.scope)) {
+      console.warn('⚠️ No scope array in response');
+      parsed.scope = [];
     }
+    
+    if (parsed.scope.length === 0) {
+      console.warn('⚠️ Gemini returned empty scope - attempting to extract from response');
+      // Last resort: if Gemini explained but didn't provide items, fail gracefully
+      throw new Error('No items extracted from PDF. The document may not contain a clear item list.');
+    }
+    
+    console.log(`✅ Found ${parsed.scope.length} item(s)`);
     
     parsed.scope = parsed.scope.map((item: any, idx: number) => ({
       item_id: Number(item.item_id ?? idx + 1),

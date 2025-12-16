@@ -93,49 +93,47 @@ export async function POST(request: NextRequest) {
     const parsed = await pdfParse(buffer);
     const text = parsed.text || '';
 
-    // Convert to RFP schema using Gemini first, fallback to heuristic
+    // Convert to RFP schema using Gemini ONLY (no heuristic fallback)
     let rfp: RFP;
-    let parserUsed: 'gemini' | 'heuristic' = 'heuristic';
+    let parserUsed: 'gemini' | 'heuristic' = 'gemini';
     
-    if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'your_gemini_api_key_here') {
-      console.log('🔑 Gemini API key found, attempting AI parsing...');
-      const result = await parseWithGemini(text);
-      if (result.rfp) {
-        rfp = result.rfp;
-        parserUsed = 'gemini';
-        console.log('✅ Using Gemini-parsed RFP');
-      } else {
-        console.log('⚠️ Gemini parsing failed, falling back to heuristic');
-        const items = extractItemsFromText(text);
-        rfp = {
-          id: `RFP-UPLOAD-${Date.now()}`,
-          title,
-          due_date: dueDate,
-          due_date_offset_days: 0,
-          scope: items,
-          tests: [],
-          origin_url: 'uploaded-pdf',
-          issuing_entity: entity,
-          executor: undefined,
-          type,
-        };
-      }
-    } else {
-      console.log('⚠️ No Gemini API key, using heuristic parser');
-      const items = extractItemsFromText(text);
-      rfp = {
-        id: `RFP-UPLOAD-${Date.now()}`,
-        title,
-        due_date: dueDate,
-        due_date_offset_days: 0,
-        scope: items,
-        tests: [],
-        origin_url: 'uploaded-pdf',
-        issuing_entity: entity,
-        executor: undefined,
-        type,
-      };
+    if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'your_gemini_api_key_here') {
+      console.error('❌ No Gemini API key configured!');
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Gemini API key not configured. Please set GEMINI_API_KEY in .env.local',
+        hint: 'Get your API key from https://aistudio.google.com/app/apikey'
+      }, { status: 503 });
     }
+    
+    console.log('🔑 Gemini API key found, attempting AI parsing...');
+    console.log('📄 PDF text length:', text.length, 'characters');
+    console.log('📝 PDF text preview:', text.slice(0, 500));
+    
+    const result = await parseWithGemini(text);
+    
+    if (!result.rfp) {
+      console.error('❌ Gemini parsing completely failed');
+      console.error('📄 PDF text preview:', text.slice(0, 500));
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Gemini AI could not extract structured data from this PDF.',
+        details: 'The document may be: (1) a scanned image requiring OCR, (2) have complex formatting, (3) contain no clear item lists, or (4) be corrupted.',
+        suggestions: [
+          'Ensure PDF contains actual text (not just images)',
+          'Check if the document has a clear list of items/products',
+          'Try a simpler PDF format if possible',
+          'Verify the PDF is not password protected'
+        ],
+        pdfTextPreview: text.slice(0, 800),
+        textLength: text.length,
+        hasText: text.length > 50
+      }, { status: 422 });
+    }
+    
+    rfp = result.rfp;
+    console.log('✅ Using Gemini-parsed RFP');
+    console.log('📊 Extracted items:', rfp.scope.length);
 
     // Persist to MongoDB
     try {

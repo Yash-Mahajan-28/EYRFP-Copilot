@@ -20,7 +20,7 @@ export async function POST(request: Request) {
       }, { status: 503 });
     }
 
-    // Get RFP data from static JSON
+    // Get RFP data from static JSON and MongoDB (uploaded RFPs)
     const today = new Date();
     const rfps: RFP[] = [];
     
@@ -44,10 +44,26 @@ export async function POST(request: Request) {
       });
     });
     
-    const rfp = rfps.find(r => r.id === rfpId);
+    let rfp = rfps.find(r => r.id === rfpId);
+    
+    // If not found in static data, check MongoDB for uploaded RFPs
+    if (!rfp) {
+      try {
+        const db = await getDatabase();
+        const uploads = db.collection('uploaded_rfps');
+        const uploadedDoc = await uploads.findOne({ 'rfp.id': rfpId });
+        
+        if (uploadedDoc && uploadedDoc.rfp) {
+          rfp = uploadedDoc.rfp as RFP;
+          console.log('📤 Found uploaded RFP in MongoDB');
+        }
+      } catch (dbError) {
+        console.error('MongoDB lookup error:', dbError);
+      }
+    }
     
     if (!rfp) {
-      return NextResponse.json({ error: 'RFP not found' }, { status: 404 });
+      return NextResponse.json({ error: 'RFP not found in catalog or uploads' }, { status: 404 });
     }
 
     console.log(`\n${'='.repeat(60)}`);
@@ -243,7 +259,7 @@ export async function GET() {
   return NextResponse.json({
     status: 'online',
     configured,
-    model: process.env.GEMINI_MODEL || 'gemini-1.5-flash-latest',
+    model: process.env.GEMINI_MODEL || 'gemini-2.5-flash-latest',
     temperature: process.env.GEMINI_TEMPERATURE || '0.7',
     agents: [
       {

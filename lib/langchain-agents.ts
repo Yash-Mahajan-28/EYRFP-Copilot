@@ -6,7 +6,7 @@ import type { RFP, RFPItem } from './rfpParser';
 // Initialize the LLM
 function createLLM() {
   return new ChatGoogleGenerativeAI({
-    model: process.env.GEMINI_MODEL || 'gemini-1.5-flash-latest',
+    model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
     temperature: parseFloat(process.env.GEMINI_TEMPERATURE || '0.7'),
     apiKey: process.env.GEMINI_API_KEY,
   });
