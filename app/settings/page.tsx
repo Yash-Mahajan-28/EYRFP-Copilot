@@ -126,10 +126,10 @@ export default function SettingsPage() {
               >
                 {/* Header */}
                 <div className={`p-6 ${
-                  index === 0 ? 'bg-gradient-to-r from-purple-600 to-purple-700' :
-                  index === 1 ? 'bg-gradient-to-r from-blue-600 to-blue-700' :
-                  index === 2 ? 'bg-gradient-to-r from-green-600 to-green-700' :
-                  'bg-gradient-to-r from-orange-600 to-orange-700'
+                  index === 0 ? 'bg-gradient-to-br from-indigo-700 to-purple-800' :
+                  index === 1 ? 'bg-gradient-to-br from-blue-700 to-blue-900' :
+                  index === 2 ? 'bg-gradient-to-br from-emerald-700 to-teal-800' :
+                  'bg-gradient-to-br from-amber-600 to-orange-700'
                 } text-white`}>
                   <div className="flex items-start justify-between mb-3">
                     <Bot size={32} />
@@ -235,11 +235,11 @@ export default function SettingsPage() {
 
             <div className="flex items-center justify-between">
               <div className="text-center flex-1">
-                <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <Bot className="text-purple-600" size={32} />
+                <div className="w-16 h-16 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-2 shadow-sm">
+                  <Bot className="text-indigo-600" size={32} />
                 </div>
-                <p className="font-semibold text-sm">Sales Agent</p>
-                <p className="text-xs text-gray-500">Discovers RFPs</p>
+                <p className="font-semibold text-sm text-gray-600">Sales Agent</p>
+                <p className="text-xs text-gray-400">Discovers RFPs</p>
               </div>
               
               <div className="flex-shrink-0 px-4">
@@ -247,11 +247,11 @@ export default function SettingsPage() {
               </div>
 
               <div className="text-center flex-1">
-                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center mx-auto mb-2 shadow-sm">
                   <Bot className="text-blue-600" size={32} />
                 </div>
-                <p className="font-semibold text-sm">Tech Agent</p>
-                <p className="text-xs text-gray-500">Matches Specs</p>
+                <p className="font-semibold text-sm text-gray-600">Tech Agent</p>
+                <p className="text-xs text-gray-400">Matches Specs</p>
               </div>
               
               <div className="flex-shrink-0 px-4">
@@ -259,11 +259,11 @@ export default function SettingsPage() {
               </div>
 
               <div className="text-center flex-1">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <Bot className="text-green-600" size={32} />
+                <div className="w-16 h-16 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-full flex items-center justify-center mx-auto mb-2 shadow-sm">
+                  <Bot className="text-emerald-600" size={32} />
                 </div>
-                <p className="font-semibold text-sm">Pricing Agent</p>
-                <p className="text-xs text-gray-500">Calculates Costs</p>
+                <p className="font-semibold text-sm text-gray-600">Pricing Agent</p>
+                <p className="text-xs text-gray-400">Calculates Costs</p>
               </div>
               
               <div className="flex-shrink-0 px-4">
@@ -271,11 +271,11 @@ export default function SettingsPage() {
               </div>
 
               <div className="text-center flex-1">
-                <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <Bot className="text-orange-600" size={32} />
+                <div className="w-16 h-16 bg-gradient-to-br from-amber-100 to-orange-100 rounded-full flex items-center justify-center mx-auto mb-2 shadow-sm">
+                  <Bot className="text-amber-600" size={32} />
                 </div>
-                <p className="font-semibold text-sm">Main Agent</p>
-                <p className="text-xs text-gray-500">Orchestrates</p>
+                <p className="font-semibold text-sm text-gray-600">Main Agent</p>
+                <p className="text-xs text-gray-400">Orchestrates</p>
               </div>
             </div>
           </div>
