@@ -69,7 +69,7 @@ export default function AnalyticsPage() {
               });
 
               const pathD = points
-                .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`)
+                .map((p: any, i: number) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`)
                 .join(' ');
 
               return (
@@ -98,7 +98,7 @@ export default function AnalyticsPage() {
                     <path d={pathD} fill="none" stroke="#2563eb" strokeWidth={3} strokeLinecap="round" />
 
                     {/* Points */}
-                    {points.map((p, i) => (
+                    {points.map((p: any, i: number) => (
                       <g key={i}>
                         <circle cx={p.x} cy={p.y} r={6} fill="#2563eb" />
                         <circle cx={p.x} cy={p.y} r={10} fill="transparent" />
@@ -107,14 +107,14 @@ export default function AnalyticsPage() {
                     ))}
 
                     {/* X axis labels */}
-                    {points.map((p, i) => (
+                    {points.map((p: any, i: number) => (
                       <text key={i} x={p.x} y={height - padding + 18} fontSize={11} fill="#6b7280" textAnchor="middle">
                         {p.month}
                       </text>
                     ))}
 
                     {/* Y axis ticks */}
-                    {[minRate, (minRate + maxRate) / 2, maxRate].map((v, idx) => (
+                    {[minRate, (minRate + maxRate) / 2, maxRate].map((v: number, idx: number) => (
                       <g key={idx}>
                         <text x={padding - 8} y={padding + (1 - (v - minRate) / (maxRate - minRate || 1)) * (height - padding * 2) + 4} fontSize={11} fill="#6b7280" textAnchor="end">
                           {Math.round(v)}%
