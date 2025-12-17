@@ -88,7 +88,7 @@ Return ONLY valid JSON without markdown code blocks.`],
 
 ---
 
-Return this JSON structure:
+Return this JSON structure (keep specs mapping as instructed above):
 {{
   "id": "RFP-UPLOAD-${Date.now()}",
   "title": "<actual RFP title from document>",
