@@ -57,42 +57,38 @@ export async function parseWithGemini(text: string): Promise<{ rfp: RFP | null; 
     });
 
     const prompt = ChatPromptTemplate.fromMessages([
-      ['system', `You are an expert at extracting structured information from Paints/Coatings RFP (Request for Proposal) documents for Asian Paints.
+      ['system', `You are an expert at extracting structured information from Wires & Cables and FMEG (Fast Moving Electrical Goods) RFP (Request for Proposal) documents for an industrial products manufacturing firm.
 
-Your task: Analyze the document and extract ALL painting/coating related items, materials, or services mentioned.
+Your task: Analyze the document and extract ALL wires, cables, and electrical goods related items mentioned in the scope of supply.
 
 Extraction Rules:
 1. Find the RFP title/subject (usually at the top)
-2. Find the issuing organization/company name
-3. Find due date/deadline (look for dates, if not found use today: ${new Date().toISOString().split('T')[0]})
-4. Extract EVERY item mentioned - look for:
+2. Find the issuing organization/company name (PSU, Government Department, or LSTK project executor)
+3. Find due date/deadline for submission (look for dates, if not found use today: ${new Date().toISOString().split('T')[0]})
+4. Extract EVERY item in scope of supply - look for:
    - Numbered lists (1., 2., 3.)
    - Bullet points (•, -, *)
    - Tables with item descriptions
-   - Any lines mentioning paints, coatings, primers, putty, surface preparation, scaffolding
-   - Quantities with units (m², liters, kg, running meters, etc.)
+   - Any lines mentioning cables, wires, conductors, switches, sockets, MCBs, electrical fittings
+   - Quantities with units (meters, km, running meters, pieces, nos, etc.)
 
-5. For technical specifications (Paints/Coatings focus):
-   - Extract: coverage_area_m2, surface_type (interior/exterior/metal/wood/concrete), number_of_coats, paint_type/system (emulsion/enamel/epoxy/polyurethane), finish (matte/gloss/satin), color/shade if present, primer_required (yes/no), surface_prep (eg. rust removal, sanding, putty), VOC/low_odor requirements, warranty_years if present.
-   - If thickness is specified, extract dry_film_thickness_microns.
+5. For technical specifications (Wires & Cables / FMEG focus):
+   - Extract: conductor_size_mm2 (cross-sectional area like 4mm², 16mm², 25mm²), voltage_kv (voltage rating like 1.1kV, 3.3kV, 6.6kV, 11kV), insulation_mm (insulation thickness in mm), conductor_material (copper/aluminum), insulation_type (PVC/XLPE/EPR), number_of_cores (single/multi-core), armoring (armored/unarmored)
+   - For FMEG products: extract current_rating, breaking_capacity, IP_rating, material specifications
+   - If specifications are not explicitly mentioned, infer reasonable values from product descriptions
 
-Schema compatibility mapping (important): in addition to the above keys, also include these numeric placeholders under specs for compatibility with downstream code:
-   - conductor_size_mm2: map to coverage_area_m2 (or a reasonable numeric value)
-   - voltage_kv: map to number_of_coats
-   - insulation_mm: map to dry_film_thickness_microns divided by 1000 (mm). If not given, use 0.1
+6. Look for test requirements or quality standards (eg. IS standards, voltage withstand tests, insulation resistance tests, conductor resistance tests, routine tests, type tests, acceptance tests at project site)
 
-6. Look for test requirements or quality standards (eg. IS/ISO standards, adhesion tests, salt spray for metal, washability)
-
-CRITICAL: Use actual text from the document - NO generic placeholders like "Item 1" or "Product X".
+CRITICAL: Use actual text from the document - NO generic placeholders like "Item 1" or "Product X". Extract the exact cable/wire/product descriptions from the RFP.
 
 Return ONLY valid JSON without markdown code blocks.`],
-      ['human', `Analyze this paints/coatings RFP document and extract all information:
+      ['human', `Analyze this Wires & Cables / FMEG RFP document and extract all information:
 
 {rfpText}
 
 ---
 
-Return this JSON structure (keep specs mapping as instructed above):
+Return this JSON structure:
 {{
   "id": "RFP-UPLOAD-${Date.now()}",
   "title": "<actual RFP title from document>",
@@ -101,29 +97,22 @@ Return this JSON structure (keep specs mapping as instructed above):
   "scope": [
     {{
       "item_id": 1,
-      "description": "<ACTUAL paints/coatings item description - include surface and area>",
-      "qty": <number>,
+      "description": "<ACTUAL cable/wire/FMEG product description from RFP - be specific about type, voltage, conductor size>",
+      "qty": <number in meters/km for cables or pieces/nos for FMEG>,
       "specs": {{
-        "coverage_area_m2": <number>,
-        "surface_type": "<concrete/metal/wood/interior/exterior>",
-        "number_of_coats": <number>,
-        "paint_type": "<emulsion/enamel/epoxy/...>",
-        "finish": "<matte/gloss/satin>",
-        "primer_required": <true|false>,
-        "dry_film_thickness_microns": <number>,
-        "conductor_size_mm2": <number>,
-        "voltage_kv": <number>,
-        "insulation_mm": <number>
+        "conductor_size_mm2": <number - conductor cross-sectional area>,
+        "voltage_kv": <number - voltage rating in kV>,
+        "insulation_mm": <number - insulation thickness in mm>
       }}
     }}
   ],
-  "tests": ["<eg. IS/ISO test requirements if any>"],
+  "tests": ["<eg. IS standards, voltage tests, insulation resistance tests, conductor resistance tests, type tests, routine tests, acceptance tests>"],
   "origin_url": "uploaded-pdf",
-  "issuing_entity": "<organization name from document>",
+  "issuing_entity": "<PSU/Government Department/LSTK project executor name from document>",
   "type": "PDF"
 }}
 
-Extract AT LEAST 1 item. If the document has multiple items, include them all.`],
+Extract AT LEAST 1 item. If the document has multiple items in scope of supply, include them all.`],
     ]);
 
     const chain = prompt.pipe(llm).pipe(new StringOutputParser());
